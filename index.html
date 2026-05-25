@@ -1,0 +1,130 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>运营团队周报</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="static/weekly_dashboard.css">
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <div class="rpt-header">
+    <div class="logo">
+      <svg viewBox="0 0 24 24"><path d="M3 13h2v8H3v-8zm6-8h2v16H9V5zm6 4h2v12h-2V9zm6-6h2v18h-2V3z"/></svg>
+    </div>
+    <div>
+      <h1>运营团队周报</h1>
+      <p id="header-range"></p>
+    </div>
+  </div>
+
+  <!-- 数据概览 -->
+  <div class="kpi-section">
+    <div class="sec-hdr sec-hdr-first"><div class="dot"></div><h2>数据概览</h2></div>
+    <div class="kpi-grid">
+      <div class="tag-yr" id="yr-days-details">年度天数</div>
+      <div class="tag-mo" id="mo-days-details">月度最新</div>
+      <div class="yr-mo-divider"></div>
+      <div class="kpi-row">
+        <div class="kpi-card blue"><div class="kpi-label1">年度消耗</div><div class="kpi-val" id="kpi-yr-total">--</div><div class="kpi-comp kpi-comp-strong" id="kpi-yr-monthly-avg">月均消耗 <b>--</b></div></div>
+        <div class="kpi-card blue"><div class="kpi-label1">日均消耗</div><div class="kpi-val" id="kpi-yr-daily">--</div><div class="kpi-comp" id="kpi-yr-daily-comp">--</div></div>
+        <div class="kpi-card blue"><div class="kpi-label1">人均日耗</div><div class="kpi-val" id="kpi-yr-pc">--</div><div class="kpi-comp" id="kpi-yr-pc-comp">--</div></div>
+        <div class="kpi-card orange"><div class="kpi-label2">月度消耗</div><div class="kpi-val" id="kpi-mo-total">--</div><div class="kpi-comp kpi-comp-strong" id="kpi-mo-forecast">预计达成 <b>--</b></div></div>
+        <div class="kpi-card orange"><div class="kpi-label2">日均消耗</div><div class="kpi-val" id="kpi-mo-daily">--</div><div class="kpi-comp" id="kpi-mo-daily-comp">--</div></div>
+        <div class="kpi-card orange"><div class="kpi-label2">人均日耗</div><div class="kpi-val" id="kpi-mo-pc">--</div><div class="kpi-comp" id="kpi-mo-pc-comp">--</div></div>
+	</div>
+      <!-- 年度媒体消耗占比饼图 -->
+      <div id="center-media-ratio" class="media-ratio-panel"></div>
+    </div>
+  </div>
+
+  <!-- 分团队卡片（动态生成） -->
+  <div class="sec-hdr"><div class="dot"></div><h2>年度指标达成</h2></div>
+  <div class="team-section" id="team-cards"></div>
+
+  <!-- 人均日耗 + 年度ROI -->
+  <div class="annual-insights">
+    <!-- 左：人均日耗 -->
+    <div class="media-wrap panel-no-margin panel-tight">
+      <div class="panel-kicker"><span></span>年人均日耗</div>
+      <div id="centerPcTags" class="tag-cloud"></div>
+      <div id="deptPcChart" class="chart-md"></div>
+    </div>
+    <!-- 右：年度ROI -->
+    <div class="media-wrap panel-no-margin panel-tight">
+      <div class="panel-kicker"><span></span>年预估ROI</div>
+      <div class="input-row"><input id="note-roi" type="text" placeholder="数据截止日期"></div>
+      <div id="roiChart" class="chart-lg"></div>
+    </div>
+  </div>
+
+  <!-- 当月指标达成 -->
+  <div class="sec-hdr"><div class="dot"></div><h2>当月指标达成</h2></div>
+  <div class="mt-section" id="month-target"></div>
+
+  <!-- 周度消耗波动 -->
+  <div class="sec-hdr"><div class="dot"></div><h2>周度消耗波动</h2><span id="weekly-range" class="header-note"></span></div>
+  <div class="weekly-grid">
+    <div class="media-wrap panel-tight">
+      <div class="panel-title">分部门近四周总消耗</div>
+      <div class="panel-subtitle">W1 为最早，W4 为当前周（可能未完整）</div>
+      <div id="weekly-dept-table"></div>
+    </div>
+    <div class="media-wrap panel-tight">
+      <div class="panel-title">W4 vs W3 品牌消耗异动</div>
+      <div class="panel-subtitle">环比变动 &gt;30% 且日均≥①元的项目，新增/停投分别标注日期</div>
+      <div id="weekly-proj-alert" class="scroll-panel"></div>
+    </div>
+  </div>
+
+  <!-- 大趋势图（保留给脚本初始化，默认隐藏） -->
+  <div class="sec-hdr hidden-section"><div class="dot"></div><h2>分媒体消耗情况</h2></div>
+  <div class="trend-section hidden-section">
+    <div class="trend-left" id="media-btns"></div>
+    <div class="trend-main">
+      <div id="trend-month-btns" class="toolbar-row"></div>
+      <div class="media-wrap panel-no-margin">
+        <div class="trend-chart-wrap">
+          <div id="mainChart" class="chart-fill"></div>
+        </div>
+      </div>
+    </div>
+    <div class="trend-right">
+      <div class="top3-title">TOP5 品牌消耗</div>
+      <ul class="top3-list" id="top3List"><li class="empty-list-item">加载中...</li></ul>
+    </div>
+  </div>
+
+  <!-- 媒体汇总（保留给脚本初始化，默认隐藏） -->
+  <div class="sec-hdr hidden-section"><div class="dot"></div><h2>媒体汇总</h2></div>
+  <div class="media-wrap hidden-section">
+    <div class="media-header"><h3>各媒体消耗总计</h3></div>
+    <table class="tbl">
+      <thead><tr><th>媒体</th><th>总消耗</th><th>占比</th><th>占比条</th></tr></thead>
+      <tbody id="media-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- 部门详情 -->
+  <div class="sec-hdr"><div class="dot"></div><h2>年度分部门详情</h2></div>
+  <div class="dept-detail-section" id="dept-detail">
+    <div id="dept-btns"></div>
+    <div id="dept-detail-content"></div>
+  </div>
+
+
+
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script src="data.js"></script>
+
+
+<script src="dashboard.js"></script>
+</body>
+</html>
+
