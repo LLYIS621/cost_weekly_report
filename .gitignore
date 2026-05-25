@@ -1,0 +1,35 @@
+# Python缓存
+__pycache__/
+*.pyc
+
+# 虚拟环境
+venv/
+.env/
+
+# IDE
+.vscode/
+.idea/
+
+# Windows
+Thumbs.db
+
+# Mac
+.DS_Store
+
+# 日志
+*.log
+
+# 临时文件
+temp/
+tmp/
+
+# 大文件（按需）
+data/
+
+# 忽略EXCEL文档
+*.xlsx
+*.xls
+
+# 忽略py文件
+*.py
+
