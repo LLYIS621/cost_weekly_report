@@ -32,4 +32,5 @@ data/
 
 # 忽略py文件
 *.py
-
+!gen_data.py
+!check_encoding.py

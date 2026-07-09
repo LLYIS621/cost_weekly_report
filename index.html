@@ -28,18 +28,24 @@
       <div class="tag-yr" id="yr-days-details">年度天数</div>
       <div class="tag-mo" id="mo-days-details">月度最新</div>
       <div class="yr-mo-divider"></div>
+      <div id="year-goal-kpi" class="goal-kpi-slot goal-kpi-year"></div>
+      <div id="month-goal-kpi" class="goal-kpi-slot goal-kpi-month"></div>
       <div class="kpi-row">
-        <div class="kpi-card blue"><div class="kpi-label1">年度消耗</div><div class="kpi-val" id="kpi-yr-total">--</div><div class="kpi-comp kpi-comp-strong" id="kpi-yr-monthly-avg">月均消耗 <b>--</b></div></div>
+        <div class="kpi-card blue kpi-card-compact"><div class="kpi-label1">月均消耗</div><div class="kpi-val" id="kpi-yr-total">--</div></div>
         <div class="kpi-card blue"><div class="kpi-label1">日均消耗</div><div class="kpi-val" id="kpi-yr-daily">--</div><div class="kpi-comp" id="kpi-yr-daily-comp">--</div></div>
         <div class="kpi-card blue"><div class="kpi-label1">人均日耗</div><div class="kpi-val" id="kpi-yr-pc">--</div><div class="kpi-comp" id="kpi-yr-pc-comp">--</div></div>
-        <div class="kpi-card orange"><div class="kpi-label2">月度消耗</div><div class="kpi-val" id="kpi-mo-total">--</div><div class="kpi-comp kpi-comp-strong" id="kpi-mo-forecast">预计达成 <b>--</b></div></div>
-        <div class="kpi-card orange"><div class="kpi-label2">日均消耗</div><div class="kpi-val" id="kpi-mo-daily">--</div><div class="kpi-comp" id="kpi-mo-daily-comp">--</div></div>
-        <div class="kpi-card orange"><div class="kpi-label2">人均日耗</div><div class="kpi-val" id="kpi-mo-pc">--</div><div class="kpi-comp" id="kpi-mo-pc-comp">--</div></div>
-	</div>
-      <!-- 年度媒体消耗占比饼图 -->
-      <div id="center-media-ratio" class="media-ratio-panel"></div>
+        <div class="kpi-month-row">
+          <div class="kpi-card orange"><div class="kpi-label2">日均消耗</div><div class="kpi-val" id="kpi-mo-daily">--</div><div class="kpi-comp" id="kpi-mo-daily-comp">--</div></div>
+          <div class="kpi-card orange"><div class="kpi-label2">人均日耗</div><div class="kpi-val" id="kpi-mo-pc">--</div><div class="kpi-comp" id="kpi-mo-pc-comp">--</div></div>
+        </div>
+  	</div>
+        <!-- 年度媒体消耗占比 -->
+        <div id="center-media-ratio" class="media-ratio-panel"></div>
     </div>
   </div>
+
+  <!-- 汇报视角概览（对照版） -->
+  <div class="report-flow-panel" id="report-flow-overview"></div>
 
   <!-- 分团队卡片（动态生成） -->
   <div class="sec-hdr"><div class="dot"></div><h2>年度指标达成</h2></div>

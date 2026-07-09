@@ -23,11 +23,42 @@ var WEEK_METRIC_ANALYSIS = WEEKLY_DASHBOARD_DATA.WEEK_METRIC_ANALYSIS || {weeks:
 var MONTH_MEDIA_TABLE = WEEKLY_DASHBOARD_DATA.MONTH_MEDIA_TABLE || {};
 var MONTH_MEDIA_SUB_DEPTS = WEEKLY_DASHBOARD_DATA.MONTH_MEDIA_SUB_DEPTS || [];
 var CENTER_YEAR_MEDIA = WEEKLY_DASHBOARD_DATA.CENTER_YEAR_MEDIA || [];
+var REPORT_FLOW_OVERVIEW = WEEKLY_DASHBOARD_DATA.REPORT_FLOW_OVERVIEW || {};
 var DEPT_GROUP_DATA = WEEKLY_DASHBOARD_DATA.DEPT_GROUP_DATA || {};
 var DEPT_STAFF_DATA = WEEKLY_DASHBOARD_DATA.DEPT_STAFF_DATA || {};
 var DEPT_STAFF_MONTHLY_DATA = WEEKLY_DASHBOARD_DATA.DEPT_STAFF_MONTHLY_DATA || {};
 var WEEKLY_DEPT_AVG = WEEKLY_DASHBOARD_DATA.WEEKLY_DEPT_AVG || {};
 var WEEKLY_PROJ_ALERT = WEEKLY_DASHBOARD_DATA.WEEKLY_PROJ_ALERT || [];
+var ROI_HIDDEN_DEPTS = {};
+var TEMP_YEAR_MEDIA_TARGETS = {
+  '腾讯': 992725319,
+  '快手': 59156314,
+  '小红书': 228123278,
+  '头条': 159157036
+};
+
+CENTER_YEAR_MEDIA = (CENTER_YEAR_MEDIA || []).map(function(m) {
+  var overrideTarget = TEMP_YEAR_MEDIA_TARGETS[m.media];
+  if (typeof overrideTarget !== 'number' || !isFinite(overrideTarget)) {
+    return m;
+  }
+  var next = Object.assign({}, m);
+  next.target = overrideTarget;
+  next.has_target = overrideTarget > 0;
+  next.completion_pct = overrideTarget > 0 && typeof next.cost === 'number'
+    ? next.cost / overrideTarget * 100
+    : null;
+  next.target_gap = overrideTarget > 0 && typeof next.cost === 'number'
+    ? next.cost - overrideTarget
+    : null;
+  next.forecast_pct = overrideTarget > 0 && typeof next.forecast === 'number'
+    ? next.forecast / overrideTarget * 100
+    : null;
+  next.forecast_gap = overrideTarget > 0 && typeof next.forecast === 'number'
+    ? next.forecast - overrideTarget
+    : null;
+  return next;
+});
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 部门详情模块 - 每个部门独立展示两张图：左=人均日耗趋势，右=月投产比趋势
@@ -142,6 +173,9 @@ var WEEKLY_PROJ_ALERT = WEEKLY_DASHBOARD_DATA.WEEKLY_PROJ_ALERT || [];
 
   // ── Build right chart (\u6708\u6295\u4ea7\u6bd4\u8d8b\u52bf) ──
   function buildRoiOption(dept) {
+    if (ROI_HIDDEN_DEPTS[dept]) {
+      return {};
+    }
     var clr = DETAIL_COLORS[dept] || '#1A56DB';
     var clr2 = DETAIL_COLORS2[dept] || '#3B82F6';
     var roiArr = (DEPT_MONTHLY_ROI && DEPT_MONTHLY_ROI[dept]) || [];
@@ -217,8 +251,10 @@ var WEEKLY_PROJ_ALERT = WEEKLY_DASHBOARD_DATA.WEEKLY_PROJ_ALERT || [];
 
       // \u6295\u4ea7\u6bd4\u6458\u8981\uff08\u5e74\u5ea6\u6295\u4ea7\u6bd4\uff09
       var yearRoi = 0;
-      for (var ri = 0; ri < ROI_DATA.length; ri++) {
-        if (ROI_DATA[ri].dept === dept) { yearRoi = ROI_DATA[ri].roi; break; }
+      if (!ROI_HIDDEN_DEPTS[dept]) {
+        for (var ri = 0; ri < ROI_DATA.length; ri++) {
+          if (ROI_DATA[ri].dept === dept) { yearRoi = ROI_DATA[ri].roi; break; }
+        }
       }
       var roiSummary = '';
       if (yearRoi > 0) {
@@ -271,6 +307,65 @@ var WEEKLY_PROJ_ALERT = WEEKLY_DASHBOARD_DATA.WEEKLY_PROJ_ALERT || [];
 })();
 
 // ═══════════════════════════════════════════════════════════
+// 顶部目标进度 KPI 卡
+// ═══════════════════════════════════════════════════════════
+(function(){
+  var yearBox = document.getElementById('year-goal-kpi');
+  var monthBox = document.getElementById('month-goal-kpi');
+  var year = REPORT_FLOW_OVERVIEW.year || {};
+  var month = REPORT_FLOW_OVERVIEW.month || {};
+  var TEMP_YEAR_TARGET = 1439161947;
+  var TEMP_MONTH_TARGET = 127485001;
+
+  function applyTempTarget(scope, tempTarget) {
+    if (!scope || !tempTarget) return scope || {};
+    var next = Object.assign({}, scope);
+    next.target = tempTarget;
+    next.completion_pct = typeof next.cost === 'number' && tempTarget
+      ? (next.cost / tempTarget * 100)
+      : next.completion_pct;
+    next.forecast_pct = typeof next.forecast === 'number' && tempTarget
+      ? (next.forecast / tempTarget * 100)
+      : next.forecast_pct;
+    next.forecast_gap = typeof next.forecast === 'number'
+      ? (next.forecast - tempTarget)
+      : next.forecast_gap;
+    return next;
+  }
+
+  year = applyTempTarget(year, TEMP_YEAR_TARGET);
+  month = applyTempTarget(month, TEMP_MONTH_TARGET);
+
+  if (yearBox && year.target) {
+    yearBox.innerHTML = goalProgressCard({
+      theme: 'goal-progress-blue',
+      targetLabel: '年目标',
+      target: fmtWan(year.target),
+      costLabel: '年度消耗',
+      cost: fmtWan(year.cost),
+      completionPct: year.completion_pct,
+      forecastPct: year.forecast_pct,
+      forecast: fmtWan(year.forecast),
+      forecastGap: year.forecast_gap
+    });
+  }
+
+  if (monthBox && month.target) {
+    monthBox.innerHTML = goalProgressCard({
+      theme: 'goal-progress-orange',
+      targetLabel: '月目标',
+      target: fmtWan(month.target),
+      costLabel: '月度消耗',
+      cost: fmtWan(month.cost),
+      completionPct: month.completion_pct,
+      forecastPct: month.forecast_pct,
+      forecast: fmtWan(month.forecast),
+      forecastGap: month.forecast_gap
+    });
+  }
+})();
+
+// ═══════════════════════════════════════════════════════════
 // 去年同期数据（手动维护，每年更新一次）
 // ═══════════════════════════════════════════════════════════
 var LY_DAILY = 4448088;
@@ -280,8 +375,8 @@ var LY_PC    = 52993;
 // 配色 & 常量
 // ═══════════════════════════════════════════════════════════
 var MCOLORS = {'腾讯':'#0EA5A4','小红书':'#E85D75','头条':'#16A34A','快手':'#F59E0B','阿里UDS':'#64748B','百度':'#2563EB'};
-var DCOLORS = {'K2':'#4F6BED','K3':'#D97706','K4':'#0F9D7A','K4-品商':'#2563EB','K7':'#7C8F2A','品策-小红书':'#7C6A9A','K部门':'#F97316'};
-var DEPT_KEYS = ['K2','K3','K4','K7','K4-品商','品策-小红书'];
+var DCOLORS = {'K部门':'#F97316','K2':'#4F6BED','K3':'#D97706','K4':'#0F9D7A','K5':'#64748B','K7':'#7C8F2A','K4-品商':'#2563EB','品策-小红书':'#7C6A9A'};
+var DEPT_KEYS = ['K部门','K2','K3','K4','K5','K7','K4-品商','品策-小红书'];
 
 // 各团队去年年日均（元，手动维护）
 var LY_DEPT_DAILY = {'K2':930342,'K3':1126260,'K4':384047,'K4-品商':351106,'K7':623799,'品策-小红书':336012};
@@ -291,6 +386,31 @@ var LY_DEPT_DAILY = {'K2':930342,'K3':1126260,'K4':384047,'K4-品商':351106,'K7
 // ═══════════════════════════════════════════════════════════
 function fmtWan(v){ var w=v/10000; return w>=10000?(w/10000).toFixed(1)+'亿':w.toFixed(1)+'万'; }
 function fmtPct(v){ return (v>=0?'+':'')+v.toFixed(1)+'%'; }
+function pctText(v) {
+  return typeof v === 'number' && isFinite(v) ? v.toFixed(1) + '%' : '待定';
+}
+function goalStatusText(gap) {
+  if (typeof gap !== 'number' || !isFinite(gap)) return '目标待定';
+  return gap >= 0 ? ('预计超目标 ' + fmtWan(gap)) : ('预计差额 ' + fmtWan(Math.abs(gap)));
+}
+function goalProgressCard(config) {
+  var pct = typeof config.completionPct === 'number' && isFinite(config.completionPct)
+    ? Math.max(0, Math.min(config.completionPct, 100))
+    : 0;
+  return '<div class="goal-progress-card '+config.theme+'">'
+      + '<div class="goal-progress-main">'
+      + '<div class="goal-metric"><span>'+config.targetLabel+'</span><strong>'+config.target+'</strong></div>'
+      + '<div class="goal-metric"><span>'+config.costLabel+'</span><strong>'+config.cost+'</strong></div>'
+      + '<div class="goal-metric goal-forecast"><span>预计完成率</span><strong>'+pctText(config.forecastPct)+'</strong></div>'
+      + '<div class="goal-progress-line">'
+        + '<div class="goal-progress-label"><span>目标完成率</span><b>'+pctText(config.completionPct)+'</b></div>'
+        + '<div class="goal-progress-track"><div class="goal-progress-fill" style="--w:'+pct.toFixed(1)+'%"></div></div>'
+      + '</div>'
+      + '<div class="goal-forecast-detail"><em>预计完成 '+config.forecast+'</em><em>'+goalStatusText(config.forecastGap)+'</em></div>'
+    + '</div>'
+  + '</div>';
+}
+
 function pillHtml(v){
   var cls = v>=0?'up':'dn', arrow = v>=0?'↑':'↓';
   return '<span class="pill '+cls+'">'+arrow+Math.abs(v).toFixed(1)+'%</span>';
@@ -330,14 +450,12 @@ function filterByMonth(arr, mo) {
   var yrTotal = CENTER_YEAR['消耗'];
   var yrDaily = CENTER_YEAR['日均消耗'];
   var yrPc = CENTER_YEAR['人均日耗'];
-  var yrPc = CENTER_YEAR['人均日耗'];
-  document.getElementById('kpi-yr-total').textContent = fmtWan(yrTotal);
   // 月均消耗 = 年度消耗 / (截止上月的完整月数 + 当月已过天数/当月总天数)
   // 当月已过天数 = maxD.getDate()（即最新消耗日期）
   var completedMonths = maxD.getMonth(); // 0-based → 即截止上月的完整月数（1月=0个完整月）
   var monthWeight = completedMonths + dayMax / daysInMonth;
   var yrMonthlyAvg = monthWeight > 0 ? yrTotal / monthWeight : 0;
-  document.getElementById('kpi-yr-monthly-avg').innerHTML = '月均 <b>' + fmtWan(yrMonthlyAvg) + '</b>';
+  document.getElementById('kpi-yr-total').textContent = fmtWan(yrMonthlyAvg);
   // ======================================
   // 人工新增
   // ======================================
@@ -361,11 +479,6 @@ function filterByMonth(arr, mo) {
   
   var latest = CENTER_MONTHS[CENTER_MONTHS.length - 1];
   var prev = CENTER_MONTHS.length >= 2 ? CENTER_MONTHS[CENTER_MONTHS.length - 2] : null;
-  document.getElementById('kpi-mo-total').textContent = fmtWan(latest['消耗']);
-  // 预计达成 = 月度消耗 + 日均消耗 × 当月剩余天数
-  var remainDays = daysInMonth - dayMax;
-  var moForecast = latest['消耗'] + latest['日均消耗'] * remainDays;
-  document.getElementById('kpi-mo-forecast').innerHTML = '预计达成 <b>' + fmtWan(moForecast) + '</b>';
   // ======================================
   // 人工新增
   // ======================================
@@ -405,19 +518,20 @@ function filterByMonth(arr, mo) {
   var legendRows = validData.map(function(m){
     var clr = MCL[m.media] || '#6B7280';
     var cost = m.cost;
-    var target = cost * 3;
-    var rate = target > 0 ? cost / target : 0;
-    var barPercent = (rate * 100).toFixed(1);
-    var finishRate = (rate * 100).toFixed(1);
+    var shareText = typeof m.pct === 'number' && isFinite(m.pct) ? m.pct.toFixed(1) + '%' : (Number(m.pct || 0).toFixed(1) + '%');
+    var hasTarget = !!m.has_target && m.target > 0;
+    var finishRate = hasTarget && typeof m.completion_pct === 'number' ? m.completion_pct : 0;
+    var barPercent = hasTarget ? Math.min(finishRate, 100).toFixed(1) : '0.0';
+    var progressText = hasTarget ? (finishRate.toFixed(1) + '%') : '待定';
 
     return '<div class="media-ratio-row">'
       + '<span class="media-ratio-dot" style="--media-color:'+clr+'"></span>'
       + '<span class="media-ratio-name">'+m.media+'</span>'
-      + '<span class="media-ratio-pct">'+m.pct+'%</span>'
+      + '<span class="media-ratio-pct">'+shareText+'</span>'
       + '<div class="media-ratio-meta">'
         + '<div class="media-ratio-meta-row">'
           + '<span class="media-ratio-cost">'+(cost/10000).toFixed(1)+'万</span>'
-          + '<span class="media-ratio-progress-text">完成进度：'+" 待定 "+'%</span>'
+          + '<span class="media-ratio-progress-text">完成进度：'+progressText+'</span>'
         + '</div>'
         + '<div class="media-ratio-track">'
           + '<div class="media-ratio-fill" style="--w:'+barPercent+'%;--media-color:'+clr+'"></div>'
@@ -475,6 +589,79 @@ function filterByMonth(arr, mo) {
   });
 
   window.addEventListener('resize', function(){ pieChart.resize(); });
+})();
+
+// ═══════════════════════════════════════════════════════════
+// 汇报视角概览（对照版）：年度指标 → 年度媒体 → 月度指标
+// ═══════════════════════════════════════════════════════════
+(function(){
+  var box = document.getElementById('report-flow-overview');
+  var year = REPORT_FLOW_OVERVIEW.year || {};
+  var month = REPORT_FLOW_OVERVIEW.month || {};
+  if (!box || !year.cost || !month.month) return;
+
+  function progressBar(v, color) {
+    var pct = typeof v === 'number' && isFinite(v) ? Math.max(0, Math.min(v, 100)) : 0;
+    return '<div class="rf-progress"><div class="rf-progress-fill" style="--w:'+pct.toFixed(1)+'%;--bar-color:'+color+'"></div></div>';
+  }
+  function mediaForecastHtml(m) {
+    if (typeof m.forecast !== 'number' || typeof m.forecast_pct !== 'number' || typeof m.forecast_gap !== 'number') {
+      return '';
+    }
+    var gapText = m.forecast_gap >= 0 ? '预计超目标 ' + fmtWan(m.forecast_gap) : '预计差额 ' + fmtWan(Math.abs(m.forecast_gap));
+    return '<div class="rf-media-forecast">'
+      + '<span>预计达成 <b>'+fmtWan(m.forecast)+'</b></span>'
+      + '<span>预计完成率 <b>'+m.forecast_pct.toFixed(1)+'%</b></span>'
+      + '<span>'+gapText+'</span>'
+    + '</div>';
+  }
+
+  var mediaRows = (CENTER_YEAR_MEDIA || []).filter(function(m){
+    return m.pct > 0 && m.has_target && m.target > 0;
+  }).map(function(m){
+    var clr = MCOLORS[m.media] || '#64748B';
+    var finish = typeof m.completion_pct === 'number' ? m.completion_pct : 0;
+    return '<div class="rf-media-card" style="--media-color:'+clr+'">'
+      + '<div class="rf-media-card-head">'
+        + '<div><span class="rf-media-dot"></span><strong>'+m.media+'</strong></div>'
+        + '<b>'+finish.toFixed(1)+'%</b>'
+      + '</div>'
+      + '<div class="rf-media-actual">'
+        + '<span>实际 '+fmtWan(m.cost)+'</span>'
+        + '<span>目标 '+fmtWan(m.target)+'</span>'
+      + '</div>'
+      + progressBar(finish, clr)
+      + mediaForecastHtml(m)
+    + '</div>';
+  }).join('');
+
+  box.innerHTML = '<div class="rf-head">'
+    + '<div><div class="rf-kicker">汇报视角对照版</div><h3>年度指标 → 年度媒体 → 月度指标</h3></div>'
+    + '<span>数据截至 '+(REPORT_FLOW_OVERVIEW.date || '-')+'</span>'
+  + '</div>'
+    + '<div class="rf-grid">'
+      + '<section class="rf-block rf-year">'
+        + '<div class="rf-block-title"><span>1. 年度指标</span></div>'
+        + goalProgressCard({theme:'goal-progress-blue', targetLabel:'年目标', target:fmtWan(year.target), costLabel:'年度消耗', cost:fmtWan(year.cost), completionPct:year.completion_pct, forecastPct:year.forecast_pct, forecast:fmtWan(year.forecast), forecastGap:year.forecast_gap})
+        + '<div class="rf-eff-strip">'
+        + '<span>月均 <b>'+fmtWan(year.monthly_avg)+'</b></span>'
+        + '<span>日均 <b>'+fmtWan(year.daily_cost)+'</b></span>'
+          + '<span>人均 <b>'+fmtWan(year.pc)+'</b></span>'
+          + '</div>'
+      + '</section>'
+    + '<section class="rf-block rf-media">'
+      + '<div class="rf-block-title">3. 年度媒体目标进度</div>'
+      + '<div class="rf-media-list">'+(mediaRows || '<div class="rf-empty">暂无媒体目标数据</div>')+'</div>'
+      + '</section>'
+      + '<section class="rf-block rf-month">'
+        + '<div class="rf-block-title"><span>2. 月度指标</span></div>'
+        + goalProgressCard({theme:'goal-progress-orange', targetLabel:'月目标', target:fmtWan(month.target), costLabel:'月度消耗', cost:fmtWan(month.cost), completionPct:month.completion_pct, forecastPct:month.forecast_pct, forecast:fmtWan(month.forecast), forecastGap:month.forecast_gap})
+        + '<div class="rf-eff-strip">'
+        + '<span>日均 <b>'+fmtWan(month.daily_cost)+'</b></span>'
+        + '<span>人均 <b>'+fmtWan(month.pc)+'</b></span>'
+          + '</div>'
+      + '</section>'
+  + '</div>';
 })();
 
 // ═══════════════════════════════════════════════════════════
@@ -767,6 +954,7 @@ window.addEventListener('resize', function(){ mainChart.resize(); });
   // 媒体颜色映射
   var MC = {'头条':'#16A34A','小红书':'#E85D75','快手':'#F59E0B','百度':'#2563EB','腾讯':'#0EA5A4','阿里UDS':'#64748B'}; 
   var mediaList = MONTH_MEDIA_LIST;
+  var TEMP_HIDE_MONTH_GOAL_BOARD = true;
 
   // 按 DEPT_KEYS 固定顺序排列
   var ORDER = ['K部门','K2','K3','K4','K7','K4-品商','品策-小红书'];
@@ -787,6 +975,7 @@ window.addEventListener('resize', function(){ mainChart.resize(); });
   var roiMap = {};
   var latestRoiMonth = 0;
   for (var dept in DEPT_MONTHLY_ROI) {
+    if (ROI_HIDDEN_DEPTS[dept]) continue;
     var arr = DEPT_MONTHLY_ROI[dept];
     if (arr.length > 0) {
       var last = arr[arr.length - 1];
@@ -796,31 +985,48 @@ window.addEventListener('resize', function(){ mainChart.resize(); });
   }
   var roiMonthLabel = latestRoiMonth > 0 ? latestRoiMonth + '月预估ROI' : '预估ROI';
 
-  // ── 部门卡片行：当月消耗 + 当月ROI + 完成率粗条（默认目标1亿） ──
-  var TARGET = 100000000;
+  // ── 部门卡片行：当月消耗 + 当月ROI + 目标完成率 ──
   var DC = {'K2':'#4F6BED','K3':'#D97706','K4':'#0F9D7A','K4-品商':'#2563EB','K7':'#7C8F2A','品策-小红书':'#7C6A9A','K部门':'#F97316'};
 
+  function fmtGoalAmount(val) {
+    var wan = val / 10000;
+    return wan >= 10000 ? (wan / 10000).toFixed(1) + '亿' : wan.toFixed(1) + '万';
+  }
+
+  function getMonthTimePct() {
+    if (!RAW_TREND.length) return 0;
+    var lastDate = new Date(RAW_TREND[RAW_TREND.length - 1]['日期']);
+    var daysInMonth = new Date(lastDate.getFullYear(), lastDate.getMonth() + 1, 0).getDate();
+    return daysInMonth ? Math.max(0, Math.min(lastDate.getDate() / daysInMonth * 100, 100)) : 0;
+  }
+
+  var monthTimePct = getMonthTimePct();
+  var monthTimeText = monthTimePct.toFixed(1) + '%';
+
   // 生成单个部门卡片HTML
-  function deptCard(dept, cost, roi, clr, showRoi, roiLabel) {
+  function deptCard(dept, cost, roi, clr, showRoi, roiLabel, target, hasTarget, completionPct, timePct) {
     var costWan = (cost / 10000).toFixed(1);
-    var pct = Math.min(cost / TARGET * 100, 100).toFixed(1);
+    var pctValue = hasTarget && typeof completionPct === 'number' ? completionPct : 0;
+    var pct = Math.min(pctValue, 100).toFixed(1);
+    var timeWidth = Math.max(0, Math.min(timePct || 0, 100)).toFixed(1);
     var pctColor = pct >= 100 ? '#059669' : '#1A56DB';
     var pctBarColor = pct >= 100 ? '#059669' : clr;
     var roiText = (showRoi && roi > 0) ? roi.toFixed(2) : '--';
-    return '<div class="mt-dept-card" style="--dept-color:'+clr+';--bar-color:'+pctBarColor+';--pct-color:'+pctColor+';--w:'+pct+'%">'
+    var goalLabel = hasTarget ? ('月目标：' + fmtGoalAmount(target)) : '月目标：待定';
+    var goalPctText = hasTarget ? (pctValue.toFixed(1) + '%') : '';
+    return '<div class="mt-dept-card" style="--dept-color:'+clr+';--bar-color:'+pctBarColor+';--pct-color:'+pctColor+';--w:'+pct+'%;--time-w:'+timeWidth+'%">'
 	  + '<div class="mt-dept-head">'
       + '<div class="mt-dept-mark"></div>'
       + '<span class="mt-dept-name">'+dept+'</span>'
       + '</div>'
       + '<div class="mt-dept-cost">'+costWan+'<span>万</span></div>'
       + '<div class="mt-dept-roi">'+roiLabel+' <span>'+roiText+'</span></div>'
-	// 人工修改:因还没目标,下面6行实际代码修改掉,其中第一行"目标进度"改为"目标进度:目标待定",第六行最后的"PCT"改成""
-      + '<div class="mt-goal-label">目标进度: 目标待定</div>'
+      + '<div class="mt-goal-label">'+goalLabel+'</div>'
       + '<div class="mt-goal-row">'
       + '<div class="mt-goal-track">'
       + '<div class="mt-goal-fill"></div>'
       + '</div>'
-      + '<span class="mt-goal-pct">'+""+'%</span>'
+      + '<span class="mt-goal-pct">'+goalPctText+'</span>'
       + '</div>'
       + '</div>';
   }
@@ -828,21 +1034,22 @@ window.addEventListener('resize', function(){ mainChart.resize(); });
   // 所有子部门卡片一行展示
   var subOrder = ['K2','K3','K4','K7','K4-品商','品策-小红书'];
   var cardsHtml = '<div class="mt-card-panel">'
-    + '<div class="panel-kicker"><span></span>当月指标达成</div>'
+    + '<div class="mt-card-panel-head">'
+      + '<div class="panel-kicker"><span></span>当月指标达成</div>'
+      + '<div class="mt-goal-legend">'
+        + '<span><i class="mt-legend-actual"></i>实际进度</span>'
+        + '<span><i class="mt-legend-time" style="--time-w:'+monthTimePct.toFixed(1)+'%"></i>时间进度 '+monthTimeText+'</span>'
+      + '</div>'
+    + '</div>'
     + '<div class="mt-card-row">';
   for (var si=0; si<subOrder.length; si++) {
     var sd = deptMap[subOrder[si]];
     if (!sd) continue;
     var sRoi = roiMap[subOrder[si]] || 0;
-    cardsHtml += deptCard(subOrder[si], sd.cost, sRoi, DC[subOrder[si]], true, roiMonthLabel);
+    cardsHtml += deptCard(subOrder[si], sd.cost, sRoi, DC[subOrder[si]], !ROI_HIDDEN_DEPTS[subOrder[si]], roiMonthLabel, sd.target || 0, !!sd.has_target, sd.completion_pct, monthTimePct);
   }
   cardsHtml += '</div>';
   
-  
-
-  // 第2张图（ROI）过滤掉品策-小红书
-  var roiFiltered = MONTH_ROI.filter(function(x) { return x.dept !== '品策-小红书'; });
-
   // 构建部门→人均品牌数/人均账户数/户均日耗的映射
   var brandPcMap = {}, acctPcMap = {}, acctDailyMap = {};
   for (var bi=0; bi<MONTH_DEPT_BRAND_PC.length; bi++) brandPcMap[MONTH_DEPT_BRAND_PC[bi].dept] = MONTH_DEPT_BRAND_PC[bi].val;
@@ -1105,6 +1312,66 @@ window.addEventListener('resize', function(){ mainChart.resize(); });
     mediaTableHtml += '</tbody></table></div>';
   }
 
+  function buildMonthGoalBoard() {
+    var monthRows = [];
+    var latestMonth = CENTER_MONTHS.length ? CENTER_MONTHS[CENTER_MONTHS.length - 1]['月'] : '';
+    var monthProgressText = '';
+    var remainingDays = 0;
+    if (RAW_TREND.length > 0) {
+      var lastDate = new Date(RAW_TREND[RAW_TREND.length - 1]['日期']);
+      var daysInMonth = new Date(lastDate.getFullYear(), lastDate.getMonth() + 1, 0).getDate();
+      var elapsedDays = lastDate.getDate();
+      remainingDays = Math.max(daysInMonth - elapsedDays, 0);
+      monthProgressText = '时间进度 ' + (elapsedDays / daysInMonth * 100).toFixed(1) + '%';
+    }
+
+    var monthOrder = ['K部门','K2','K3','K4','K5','K7','K4-品商','品策-小红书'];
+    for (var oi = 0; oi < monthOrder.length; oi++) {
+      var dept = monthOrder[oi];
+      var md = deptMap[dept];
+      if (!md || !md.has_target || !md.target) continue;
+      var dailyCost = md.daily_cost || 0;
+      var forecast = md.cost + dailyCost * remainingDays;
+      var forecastPct = md.target > 0 ? forecast / md.target * 100 : null;
+      var forecastGap = md.target > 0 ? forecast - md.target : null;
+      monthRows.push({
+        dept: dept,
+        cost: md.cost || 0,
+        target: md.target || 0,
+        completion: typeof md.completion_pct === 'number' ? md.completion_pct : 0,
+        forecast: forecast,
+        forecastPct: forecastPct,
+        forecastGap: forecastGap
+      });
+    }
+
+    var html = '<div class="team-goal-board month-goal-board">'
+      + '<div class="team-goal-title">月度消耗达成</div>'
+      + '<div class="team-goal-head">'
+        + '<span>部门</span><span>月度消耗</span><span class="team-goal-progress-head">月目标完成率 <em>'+monthProgressText+'</em></span><span>预计完成</span><span>预计差额</span>'
+      + '</div>';
+    for (var mi = 0; mi < monthRows.length; mi++) {
+      var row = monthRows[mi];
+      var color = DC[row.dept] || '#64748B';
+      var progressWidth = Math.max(2, Math.min(row.completion, 100));
+      var gapClass = row.forecastGap != null && row.forecastGap >= 0 ? 'is-positive' : 'is-negative';
+      var gapText = row.forecastGap == null
+        ? '待定'
+        : (row.forecastGap >= 0 ? '超目标 ' + fmtWan(row.forecastGap) : '缺口 ' + fmtWan(Math.abs(row.forecastGap)));
+      html += '<div class="team-goal-row '+(row.dept === 'K部门' ? 'is-kdept' : '')+'" style="--dept-color:'+color+';--w:'+progressWidth.toFixed(1)+'%">'
+        + '<div class="team-goal-dept"><span class="team-goal-mark"></span><strong>'+row.dept+'</strong></div>'
+        + '<div class="team-goal-cost"><b>'+fmtWan(row.cost)+'</b><span>月目标 '+fmtWan(row.target)+'</span></div>'
+        + '<div class="team-goal-progress" title="完成率 '+row.completion.toFixed(1)+'%">'
+          + '<div class="team-goal-track"><div class="team-goal-fill"></div></div>'
+          + '<b>'+row.completion.toFixed(1)+'%</b>'
+        + '</div>'
+        + '<div class="team-goal-forecast '+gapClass+'"><b>'+(row.forecastPct == null ? '待定' : row.forecastPct.toFixed(1)+'%')+'</b><span>预计 '+fmtWan(row.forecast)+'</span></div>'
+        + '<div class="team-goal-gap '+gapClass+'">'+gapText+'</div>'
+      + '</div>';
+    }
+    return html + '</div>';
+  }
+
   var metricAnalysisOpen = false;
   var activeMetricKey = 'brand_pc';
   var metricAnalysisData = (typeof WEEK_METRIC_ANALYSIS !== 'undefined') ? WEEK_METRIC_ANALYSIS : {weeks: [], metrics: []};
@@ -1207,7 +1474,7 @@ window.addEventListener('resize', function(){ mainChart.resize(); });
   };
 
   var chartsHtml = '';
-  box.innerHTML = mediaTableHtml + cardsHtml + '<div class="sort-hint"></div><div class="mt-table-wrap"></div>' + buildWeekMetricAnalysisHtml() + '</div>' + chartsHtml;
+  box.innerHTML = mediaTableHtml + (TEMP_HIDE_MONTH_GOAL_BOARD ? '' : buildMonthGoalBoard()) + cardsHtml + '<div class="sort-hint"></div><div class="mt-table-wrap"></div>' + buildWeekMetricAnalysisHtml() + '</div>' + chartsHtml;
   // 初始渲染表格
   renderTable();
 })();
@@ -1229,7 +1496,8 @@ window.addEventListener('resize', function(){ mainChart.resize(); });
 
   var pcChart = echarts.init(document.getElementById('deptPcChart'));
   // 按人均日耗从大到小排序
-  var pcSorted = DEPT_PC_DATA.slice().sort(function(a,b){ return b.pc - a.pc; });
+  var hiddenPcDepts = {'K5': true, '品牌策略部-腾讯': true};
+  var pcSorted = DEPT_PC_DATA.filter(function(d){ return !hiddenPcDepts[d.dept]; }).sort(function(a,b){ return b.pc - a.pc; });
   var pcNames = pcSorted.map(function(d){ return d.dept; });
   var pcValues = pcSorted.map(function(d){ return d.pc; });
   var maxPC = Math.max.apply(null, pcValues) || 100000;
@@ -1292,54 +1560,66 @@ window.addEventListener('resize', function(){ mainChart.resize(); });
 })();
 
 // ═══════════════════════════════════════════════════════════
-// 分团队卡片（动态生成 — 折线趋势图 + 最高/最低值标记）
+// 部门年度目标进度榜
 // ═══════════════════════════════════════════════════════════
 (function(){
-  var CSS_CLS = {'K2':'k2','K3':'k3','K4':'k4','K4-品商':'k4ps','K7':'k7','品策-小红书':'xh'};
-  var CLR_MAP = {'K2':'#4F6BED','K3':'#D97706','K4':'#0F9D7A','K4-品商':'#2563EB','K7':'#7C8F2A','品策-小红书':'#7C6A9A'};
-  // 获取最新消耗日期
-  var _rawLast = RAW_TREND[RAW_TREND.length-1]['日期'];
-  var maxD = new Date(_rawLast);
   var box = document.getElementById('team-cards');
-  var html = '';
+  var rows = [];
+  var yearProgressText = '';
+  var yearProgressPct = 0;
+  if (RAW_TREND.length > 0) {
+    var _lastDate = new Date(RAW_TREND[RAW_TREND.length - 1]['日期']);
+    var _yearStart = new Date(_lastDate.getFullYear(), 0, 1);
+    var _elapsedDays = Math.round((_lastDate - _yearStart) / 86400000) + 1;
+    var _totalYearDays = ((_lastDate.getFullYear() % 4 === 0 && _lastDate.getFullYear() % 100 !== 0) || (_lastDate.getFullYear() % 400 === 0)) ? 366 : 365;
+    yearProgressPct = _elapsedDays / _totalYearDays * 100;
+    yearProgressText = '时间进度 ' + yearProgressPct.toFixed(1) + '%';
+  }
   for (var i=0; i<DEPT_KEYS.length; i++) {
     var dept = DEPT_KEYS[i];
     var td = TEAM_DATA[dept];
     if (!td) continue;
-    var cls = CSS_CLS[dept] || '';
-    var deptClr = CLR_MAP[dept] || '#6B7280';
-    // 月均消耗 = 年度消耗 / (截止上月完整月数 + 当月已过天数/当月总天数)
-    var completedMonths = maxD.getMonth(); // 0-based
-    var daysInMonth = new Date(maxD.getFullYear(), maxD.getMonth() + 1, 0).getDate();
-    var dayMax = maxD.getDate();
-    var monthWeight = completedMonths + dayMax / daysInMonth;
-    var deptMonthlyAvg = monthWeight > 0 ? td.total / monthWeight : 0;
-
-    // 年度消耗完成进度: 当前消耗 / (月均消耗*12)
-    var target12 = deptMonthlyAvg * 12;
-    var progressPct = target12 > 0 ? Math.min(td.total / target12 * 100, 100).toFixed(1) : 0;
-    var progressColor = progressPct >= 100 ? '#059669' : deptClr;
-
-    html += '<div class="team-card" id="team-'+dept+'">'
-      +'<div class="tc-left '+cls+'"></div>'
-      +'<div class="tc-info">'
-      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'
-      +'<div style="width:4px;height:16px;border-radius:2px;background:'+deptClr+'"></div>'
-      +'<div class="team-name" style="margin:0">'+dept+'</div>'
-      +'</div>'
-      +'<div class="team-total" id="tt-'+dept+'">'+(td.total/10000).toFixed(1)+'万</div>'
-      +'<div class="team-progress"><div class="team-progress-bar" style="width:'+progressPct+'%;background:'+progressColor+'"></div></div>'
-      +'<div style="font-size:10px;color:#595959;margin-top:5px">年目标进度: '+"/"+'%</div>'
-      +'</div>'
-      +'<div class="tc-chart"><div style="font-size:11px;color:#9CA3AF;margin-bottom:13px;margin-top:6px;padding-left:18px">月均消耗 <span style="font-weight:800;color:#1A1D23;margin:0 4px">'+(deptMonthlyAvg/10000).toFixed(1)+'万</span><span>  月消耗趋势[下图]</span></div><div class="team-chart" id="tc-'+dept+'"></div></div>'
-      +'</div>';
+    var hasTarget = !!td.has_target && td.target > 0;
+    if (!hasTarget) continue;
+    var rawProgress = hasTarget && typeof td.completion_pct === 'number' ? td.completion_pct : 0;
+    rows.push({dept: dept, data: td, completion: rawProgress});
   }
+  var html = '<div class="team-goal-board">'
+    + '<div class="team-goal-title">年度消耗达成</div>'
+    + '<div class="team-goal-head">'
+      + '<span>部门</span><span>年度消耗</span><span class="team-goal-progress-head">年目标完成率 <span class="team-goal-legend"><i class="team-legend-actual"></i>实际进度 <i class="team-legend-time" style="--time-w:'+yearProgressPct.toFixed(1)+'%"></i>'+yearProgressText+'</span></span><span>预计完成</span><span>预计差额</span>'
+    + '</div>';
+  for (var ri=0; ri<rows.length; ri++) {
+    var row = rows[ri];
+    var dept = row.dept;
+    var td = row.data;
+    var color = DCOLORS[dept] || '#64748B';
+    var completion = row.completion;
+    var progressWidth = Math.max(2, Math.min(completion, 100));
+    var forecastPct = typeof td.forecast_pct === 'number' && isFinite(td.forecast_pct) ? td.forecast_pct : null;
+    var forecastGap = typeof td.forecast_gap === 'number' && isFinite(td.forecast_gap) ? td.forecast_gap : null;
+    var gapClass = forecastGap != null && forecastGap >= 0 ? 'is-positive' : 'is-negative';
+    var gapText = forecastGap == null
+      ? '待定'
+      : (forecastGap >= 0 ? '超目标 ' + fmtWan(forecastGap) : '缺口 ' + fmtWan(Math.abs(forecastGap)));
+    html += '<div class="team-goal-row '+(dept === 'K部门' ? 'is-kdept' : '')+'" style="--dept-color:'+color+';--w:'+progressWidth.toFixed(1)+'%;--time-w:'+yearProgressPct.toFixed(1)+'%">'
+      + '<div class="team-goal-dept"><span class="team-goal-mark"></span><strong>'+dept+'</strong></div>'
+      + '<div class="team-goal-cost"><b>'+fmtWan(td.total)+'</b><span>年目标 '+fmtWan(td.target)+'</span></div>'
+      + '<div class="team-goal-progress" title="完成率 '+completion.toFixed(1)+'%">'
+        + '<div class="team-goal-track"><div class="team-goal-fill"></div></div>'
+        + '<b>'+completion.toFixed(1)+'%</b>'
+      + '</div>'
+      + '<div class="team-goal-forecast '+gapClass+'"><b>'+(forecastPct == null ? '待定' : forecastPct.toFixed(1)+'%')+'</b><span>预计 '+(td.forecast ? fmtWan(td.forecast) : '待定')+'</span></div>'
+      + '<div class="team-goal-gap '+gapClass+'">'+gapText+'</div>'
+    + '</div>';
+  }
+  html += '</div>';
   box.innerHTML = html;
 
   // ── 年度ROI（投产比）条形图 ──
   var roiChart = echarts.init(document.getElementById('roiChart'));
   // 按ROI从大到小排序
-  var roiSorted = ROI_DATA.slice().sort(function(a,b){ return b.roi - a.roi; });
+  var roiSorted = ROI_DATA.filter(function(d){ return !ROI_HIDDEN_DEPTS[d.dept]; }).sort(function(a,b){ return b.roi - a.roi; });
   var roiNames = roiSorted.map(function(d){ return d.dept; }).reverse();
   var roiValues = roiSorted.map(function(d){ return d.roi; }).reverse();
   var maxRoi = Math.max.apply(null, roiValues) || 2;
@@ -1384,54 +1664,6 @@ window.addEventListener('resize', function(){ mainChart.resize(); });
 
   window.addEventListener('resize', function(){ roiChart.resize(); });
 })();
-
-// 折线趋势图 — 每月数值标签
-for (var di=0; di<DEPT_KEYS.length; di++) {
-  var dept = DEPT_KEYS[di];
-  var td = TEAM_DATA[dept];
-  if (!td || !td.months || td.months.length === 0) continue;
-  var el = document.getElementById('tc-' + dept);
-  if (!el) continue;
-  var vals = td.month_costs;
-  var c = DCOLORS[dept] || '#6B7280';
-
-  var ch = echarts.init(el);
-  ch.setOption({
-  //人工备注:月消耗趋势图的间隙
-    grid: {top:20, right:16, bottom:15, left:10, containLabel:false},
-    xAxis: {
-      type:'category',
-      data:td.months,
-      boundaryGap:false,
-      axisLine:{show:false},
-      axisTick:{show:false},
-      axisLabel:{
-        show:true,
-        color:'#B2BAC7',
-        fontSize:8,
-        margin:7,
-        interval:0,
-        formatter:function(value){ return String(value).replace(/\u6708$/, '') + '\u6708'; }
-      }
-    },
-    yAxis: {type:'value', show:false},
-    series: [{
-      type: 'line', data: vals, smooth: true,
-      lineStyle: {color: c, width: 2},
-      areaStyle: {color: new echarts.graphic.LinearGradient(0,0,0,1,[
-        {offset:0, color: c+'44'},
-        {offset:1, color: c+'08'}
-      ])},
-      label: {
-        show: true,
-        position: 'top',
-        fontSize: 9,
-        color: '#6B7280',
-        formatter: function(p){ return p.value.toFixed(1); }
-      }
-    }]
-  });
-}
 
 // ═══════════════════════════════════════════════════════════
 // 周度消耗波动
